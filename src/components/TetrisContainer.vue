@@ -1,15 +1,17 @@
 <template>
   <div class="tetris-container" :style="styleObject">
-    <!-- left偏移量前面加上的值是使这些盒子在游戏区域内居中出现 -->
-    <BoxItem v-for="item in activeBoxs" 
-      :key="item" 
-      :top="item.i"
-      :left="parseInt(GAME_COLUMNNUM / 2 - 1) + item.j"/>
+      <Shape v-for="item in shapes" 
+        :key="item"
+        :shapeMsg="{
+          renderArr: item.renderArr,
+          offsetArr: item.offsetArr,
+          active: item.active
+        }"/>
   </div>
 </template>
 
 <script setup>
-import BoxItem from "./BoxItem.vue";
+import Shape from "./Shape.vue";
 import { PICEBOX_SIZE, GAME_ROWNUM, GAME_COLUMNNUM } from "./../tool/constant";
 import shapeArr from "./../tool/shape";
 import { onMounted, reactive } from 'vue'
@@ -17,9 +19,19 @@ const styleObject = {
   width: PICEBOX_SIZE * GAME_COLUMNNUM + 'px',
   height: PICEBOX_SIZE * GAME_ROWNUM + 'px',
 }
-let messageBoxs = reactive(shapeArr[16]) //俄罗斯方块的渲染数据(每个小方块是否渲染)
-let activeBoxs = reactive([]) //俄罗斯方块的偏移量数据
-const traversal = (arr, oldTop, oldLeft) => {
+/**
+ * renderArr: 用于渲染
+ * offsetArr：偏移量,用于实际渲染,renderArr会转换成offsetArr
+ * active：是否可以移动变形
+ */
+const shapes = reactive([])
+shapes.push({
+  renderArr: [[1, 1, 1], [0, 1, 0]],
+  offsetArr: [{i: 8, j: 0},{i: 9, j: 0},{i: 10, j: 0},{i: 10, j: 1},],
+  active: false
+})
+shapes.push({renderArr: shapeArr[9], offsetArr: [], active: true})
+const traversal = (arr, index, oldTop, oldLeft) => {
   /**
    * 遍历二维数组,第一个循环遍历行
    * 第二个循环遍历行里面的每一项
@@ -31,15 +43,21 @@ const traversal = (arr, oldTop, oldLeft) => {
    * oldTop为原始垂直偏移量
    * oldLeft为原始水平偏移量
    */
+  /**
+   * parseInt(GAME_COLUMNNUM / 2 - ren[ren.length - 1].length / 2)
+   * 是为了居中给的初始化水平偏移量
+   */
+  const off = shapes[index].offsetArr
+  const ren = shapes[index].renderArr
   for (let i = 0; i < arr.length; i++) {
     const row = arr[i];
     for (let j = 0; j < row.length; j++) {
       const col = row[j];
       if (col === 1) {
         if (oldTop || oldLeft) {
-          activeBoxs.push({i: i + oldTop, j: j + oldLeft})
+          off.push({i: i + oldTop, j: j + oldLeft + parseInt(GAME_COLUMNNUM / 2 - ren[ren.length - 1].length / 2)})
         } else {
-          activeBoxs.push({i, j})
+          off.push({i, j: j + parseInt(GAME_COLUMNNUM / 2 - ren[ren.length - 1].length / 2)})
         }
       }
     }
@@ -50,10 +68,12 @@ const canMove = () => {
   let canMoveTop = true
   let canMoveRight = true
   let canMoveDown = true
+  const activeOffsets = shapes[getActiveIndex()].offsetArr
+  const activeRenders = shapes[getActiveIndex()].renderArr
   let tops = [] //所有盒子的高度偏移量(垂直方向)
   let lefts = [] //所有盒子的横向偏移量(水平方向)
-  for (let i = 0; i < activeBoxs.length; i++) {
-    const el = activeBoxs[i];
+  for (let i = 0; i < activeOffsets.length; i++) {
+    const el = activeOffsets[i];
     tops.push(el.i)
     lefts.push(el.j)
   }
@@ -66,8 +86,16 @@ const canMove = () => {
   let maxLeft = lefts[lefts.length - 1] //所有盒子中最右侧的偏移量
   if (minTop <= 0) canMoveTop = false
   if (maxTop >= GAME_ROWNUM - 1) canMoveDown = false
-  if (minleft <= 0 - parseInt(GAME_COLUMNNUM / 2 - 1)) canMoveLeft = false
-  if (maxLeft > 0 + parseInt(GAME_COLUMNNUM / 2 - 1)) canMoveRight = false
+  if (minleft <= 0) canMoveLeft = false
+  if (maxLeft >= GAME_COLUMNNUM - 1) canMoveRight = false
+  let actives = document.querySelectorAll('.active')
+  let locks = document.querySelectorAll('.lock')
+  // console.log({
+  //   canMoveLeft,
+  //   canMoveTop,
+  //   canMoveRight,
+  //   canMoveDown,
+  // });
   return {
     canMoveLeft,
     canMoveTop,
@@ -76,22 +104,23 @@ const canMove = () => {
   }
 }
 const toMove = (type) => {
-  for (let i = 0; i < activeBoxs.length; i++) {
-    const el = activeBoxs[i];
+  const el = shapes[getActiveIndex()].offsetArr
+  for (let i = 0; i < el.length; i++) {
+    const item = el[i];
     switch (type) {
       case 'ArrowLeft':
-        el.j -= 1
+        item.j -= 1
         break;
       case 'ArrowUp':
-        el.i -= 1
+        item.i -= 1
       break;
       case 'ArrowRight':
-        el.j += 1
+        item.j += 1
         break;
       case 'ArrowDown':
-        el.i += 1
+        item.i += 1
         break;
-
+  
       default:
         break;
     }
@@ -116,12 +145,18 @@ const checkIfRotate = (arr, oldTop, oldLeft) => {
   }
   return true
 }
+const getActiveIndex = () => {
+  // 获取shapes中能够操作移动的Shape组件的index
+  for (let i = 0; i < shapes.length; i++) {
+    if (shapes[i].active) return i
+  }
+}
 const rotate = () => {
   // 变换前先获取原始偏移量(最小的那个方块的)
   let tops = [] //所有盒子的高度偏移量(垂直方向)
   let lefts = [] //所有盒子的横向偏移量(水平方向)
-  for (let i = 0; i < activeBoxs.length; i++) {
-    const el = activeBoxs[i];
+  for (let i = 0; i < offsetArr.length; i++) {
+    const el = offsetArr[i];
     tops.push(el.i)
     lefts.push(el.j)
   }
@@ -131,24 +166,25 @@ const rotate = () => {
   // 变换俄罗斯方块的形状,实质更改二维数组
   // 如[[1, 0], [1, 0], [1, 1]]顺时针旋转后为[[1, 1, 1], [1, 0, 0]]
   let newArr = [];
-  for (let i = 0; i < messageBoxs[0].length; i++) {
+  for (let i = 0; i < renderArr[0].length; i++) {
     let temArr = [];
-    for (let j = messageBoxs.length - 1; j >= 0; j--) {
-        temArr.push(messageBoxs[j][i]);
+    for (let j = renderArr.length - 1; j >= 0; j--) {
+        temArr.push(renderArr[j][i]);
     }
-    // if (temArr && temArr[0]) 
     newArr.push(temArr);
   }
   if (checkIfRotate(newArr, tops[0], lefts[0])) {
-    messageBoxs.splice(0, messageBoxs,length) //清空已经渲染的方块
-    activeBoxs.splice(0, activeBoxs.length) //清空已经渲染的方块的偏移量
-    messageBoxs = newArr
-    traversal(messageBoxs, tops[0], lefts[0]) //渲染新的
+    renderArr.splice(0, renderArr,length) //清空已经渲染的方块
+    offsetArr.splice(0, offsetArr.length) //清空已经渲染的方块的偏移量
+    renderArr = [...newArr]
+    traversal(renderArr, getActiveIndex(), tops[0], lefts[0]) //渲染新的
   }
   
 }
 onMounted(() => {
-  traversal(messageBoxs)
+  traversal(shapes[1].renderArr, 1)
+
+
   document.onkeydown = function(event) {
     switch (event.code) {
       case 'ArrowLeft':

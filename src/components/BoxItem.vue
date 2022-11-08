@@ -1,5 +1,5 @@
 <template>
-  <span class="box-item active" :class="classList" :style="styleObject">
+  <span class="box-item" :class="classList" :style="styleObject">
   <span class="box-item-inner" :class="classInnerList" :style="styleInnerObject"></span>
   </span>
 </template>
@@ -8,8 +8,12 @@
 import { PICEBOX_SIZE } from "./../tool/constant";
 import { reactive, ref, watch } from 'vue'
 const props = defineProps({
-  top: Number,
-  left: Number,
+  top: Number, //垂直偏移量
+  left: Number, //水平偏移量
+  active: { //是否在移动
+    type: Boolean,
+    default: false,
+  },
 })
 const styleObject = reactive({
   width: PICEBOX_SIZE + 'px',
@@ -29,8 +33,8 @@ const styleInnerObject = {
   marginLeft: - PICEBOX_SIZE / 2 / 2 + 'px',
   marginTop: - PICEBOX_SIZE / 2 / 2 + 'px',
 }
-const classList = ['box-item-color6']
-const classInnerList = ['box-item-inner-color6']
+const classList = ['box-item-color7', props.active ? 'active' : 'lock']
+const classInnerList = ['box-item-inner-color7']
 
 
 const count = ref(0)
@@ -59,6 +63,9 @@ const count = ref(0)
 .box-item-color6 {
   background-color: rgb(231, 234, 25);
 }
+.box-item-color7 {
+  background-color: rgb(30, 31, 22);
+}
 
 .box-item-inner {
   display: inline-block;
@@ -83,5 +90,8 @@ const count = ref(0)
 }
 .box-item-inner-color6 {
   background-color: rgb(141, 144, 16);
+}
+.box-item-inner-color7 {
+  background-color: rgb(44, 44, 34);
 }
 </style>
