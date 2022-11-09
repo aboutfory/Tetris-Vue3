@@ -21,7 +21,6 @@ let renderArr = reactive(props.shapeMsg.renderArr) //俄罗斯方块的渲染数
 let offsetArr = reactive(props.shapeMsg.offsetArr) //俄罗斯方块的偏移量数据
 let active = ref(props.shapeMsg.active) //俄罗斯方块的是否能移动
 
-console.log(props.shapeMsg);
 
 
 </script>
