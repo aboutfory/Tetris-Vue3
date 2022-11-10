@@ -1,12 +1,15 @@
 <template>
   <div class="tetris-container" :style="styleObject">
-      <Shape v-for="item in shapes" 
-        :key="item"
-        :shapeMsg="{
-          renderArr: item.renderArr,
-          offsetArr: item.offsetArr,
-          active: item.active
-        }"/>
+    <button @click="start">start</button>
+    <button id="down" style="display: none;" @click="() => {if(canMove().canMoveDown) toMove('ArrowDown')}">down</button>
+    <button @click="stop">stop</button>
+    <Shape v-for="item in shapes" 
+      :key="item"
+      :shapeMsg="{
+        renderArr: item.renderArr,
+        offsetArr: item.offsetArr,
+        active: item.active
+      }"/>
   </div>
 </template>
 
@@ -14,7 +17,7 @@
 import Shape from "./Shape.vue";
 import { PICEBOX_SIZE, GAME_ROWNUM, GAME_COLUMNNUM } from "./../tool/constant";
 import shapeArr from "./../tool/shape";
-import { onMounted, reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 const styleObject = {
   width: PICEBOX_SIZE * GAME_COLUMNNUM + 'px',
   height: PICEBOX_SIZE * GAME_ROWNUM + 'px',
@@ -24,17 +27,21 @@ const styleObject = {
  * offsetArr：偏移量,用于实际渲染,renderArr会转换成offsetArr
  * active：是否可以移动变形
  */
+const jsonDeepCopy = (obj) => JSON.parse(JSON.stringify(obj))
+let timeout = ref()
 const shapes = reactive([])
-shapes.push({renderArr: shapeArr[9], offsetArr: [], active: true})
+shapes.push({renderArr: jsonDeepCopy(shapeArr[22]), offsetArr: [], active: true, initWidth: shapeArr[22][0].length})
 shapes.push({
   renderArr: [[1, 1, 1], [0, 1, 0]],
   offsetArr: [{i: 8, j: 0},{i: 9, j: 0},{i: 10, j: 0},{i: 10, j: 1},],
-  active: false
+  active: false,
+  initWidth: 3
 })
 shapes.push({
   renderArr: [[1, 1, 1], [0, 1, 1]],
   offsetArr: [{i: 19, j: 7},{i: 18, j: 8},{i: 17, j: 8},{i: 17, j: 8},{i: 19, j: 8}],
-  active: false
+  active: false,
+  initWidth: 3
 })
 shapes.push({
   renderArr: [[1, 1, 1], [1, 1, 0]],
@@ -46,7 +53,12 @@ shapes.push({
   offsetArr: [{i: 0, j: 8},{i: 0, j: 9},{i: 1, j: 9}],
   active: false
 })
-const traversal = (arr, index, oldTop, oldLeft) => {
+shapes.push({
+  renderArr: [[1, 1, 1,1,1,1,1,1,1,1,]],
+  offsetArr: [{i: 8, j: 0},{i: 8, j: 1},{i: 8, j: 2},{i: 8, j: 3},{i: 8, j: 4},{i: 8, j: 5},{i: 8, j: 6},{i: 8, j: 7},{i: 8, j: 8},{i: 8, j: 9}],
+  active: false
+})
+const traversal = ({arr, index, center, oldTop, oldLeft}) => {
   /**
    * 遍历二维数组,第一个循环遍历行
    * 第二个循环遍历行里面的每一项
@@ -59,20 +71,29 @@ const traversal = (arr, index, oldTop, oldLeft) => {
    * oldLeft为原始水平偏移量
    */
   /**
-   * parseInt(GAME_COLUMNNUM / 2 - ren[ren.length - 1].length / 2)
+   * center代表初始化出现要进行居中
+   * parseInt(GAME_COLUMNNUM / 2 - initWidth / 2)
    * 是为了居中给的初始化水平偏移量
    */
   const off = shapes[index].offsetArr
-  const ren = shapes[index].renderArr
+  const initWidth = shapes[index].initWidth
   for (let i = 0; i < arr.length; i++) {
     const row = arr[i];
     for (let j = 0; j < row.length; j++) {
       const col = row[j];
       if (col === 1) {
         if (oldTop || oldLeft) {
-          off.push({i: i + oldTop, j: j + oldLeft + parseInt(GAME_COLUMNNUM / 2 - ren[ren.length - 1].length / 2)})
+          if (center) {
+            off.push({i: i + oldTop, j: j + oldLeft + parseInt(GAME_COLUMNNUM / 2 - initWidth / 2)})
+          } else {
+            off.push({i: i + oldTop, j: j + oldLeft})
+          }
         } else {
-          off.push({i, j: j + parseInt(GAME_COLUMNNUM / 2 - ren[ren.length - 1].length / 2)})
+          if (center) {
+            off.push({i, j: j + parseInt(GAME_COLUMNNUM / 2 - initWidth / 2)})
+          } else {
+            off.push({i, j})
+          }
         }
       }
     }
@@ -185,24 +206,46 @@ const toMove = (type) => {
     }
   }
 }
-const checkIfRotate = (arr, oldTop, oldLeft) => {
-  // 核查变形后是否会超出边界
+const checkIfRotate = ({arr, index, center, oldTop, oldLeft}) => {
+  // 核查是否可以变形,如果变形后与任意一个锁定的方块位置重合,则不可以变形
+  // 如果变形后超出游戏范围,则不可以变形
+  const off = []
+  const initWidth = shapes[index].initWidth
   for (let i = 0; i < arr.length; i++) {
     const row = arr[i];
     for (let j = 0; j < row.length; j++) {
       const col = row[j];
       if (col === 1) {
         if (oldTop || oldLeft) {
-          if (j + oldLeft > parseInt(GAME_COLUMNNUM / 2)) { //超出右边界
-            return false
-          } else if (i + oldTop > GAME_ROWNUM - 1) { //超出下边界
-            return false
+          if (center) {
+            off.push({i: i + oldTop, j: j + oldLeft + parseInt(GAME_COLUMNNUM / 2 - initWidth / 2)})
+          } else {
+            off.push({i: i + oldTop, j: j + oldLeft})
+          }
+        } else {
+          if (center) {
+            off.push({i, j: j + parseInt(GAME_COLUMNNUM / 2 - initWidth / 2)})
+          } else {
+            off.push({i, j})
           }
         }
       }
     }
   }
-  return true
+  let lockedOffsetArr = getLockedOffsetArr()
+  for (let i = 0; i < off.length; i++) {
+    const ac = off[i];
+    if (ac.i < 0 || ac.i >= GAME_ROWNUM) return {ifRotate: false}
+    if (ac.j < 0 || ac.j >= GAME_COLUMNNUM) return {ifRotate: false}
+    for (let j = 0; j < lockedOffsetArr.length; j++) {
+      const lo = lockedOffsetArr[j];
+      if (ac.i === lo.i && ac.j === lo.j) return {ifRotate: false}
+    }
+  }
+  return {
+    ifRotate: true,
+    newOffsetArr: off
+  }
 }
 const getActiveIndex = () => {
   // 获取shapes中能够操作移动的Shape组件的index
@@ -243,10 +286,12 @@ const rotate = () => {
   // 变换前先获取原始偏移量(偏移量最小的那个方块的)
   let tops = [] //所有盒子的高度偏移量(垂直方向)
   let lefts = [] //所有盒子的横向偏移量(水平方向)
+  let activeIndex = getActiveIndex()
+  let offsetArr = shapes[activeIndex].offsetArr
+  let renderArr = shapes[activeIndex].renderArr
   for (let i = 0; i < offsetArr.length; i++) {
-    const el = offsetArr[i];
-    tops.push(el.i)
-    lefts.push(el.j)
+    tops.push(offsetArr[i].i)
+    lefts.push(offsetArr[i].j)
   }
   // 偏移量升序排序
   tops.sort((a, b) => a - b)
@@ -261,16 +306,86 @@ const rotate = () => {
     }
     newArr.push(temArr);
   }
-  if (checkIfRotate(newArr, tops[0], lefts[0])) {
-    renderArr.splice(0, renderArr,length) //清空已经渲染的方块
-    offsetArr.splice(0, offsetArr.length) //清空已经渲染的方块的偏移量
-    renderArr = [...newArr]
-    traversal(renderArr, getActiveIndex(), tops[0], lefts[0]) //渲染新的
+  // 核查是否可以变形
+  let check = checkIfRotate({
+    arr: newArr, 
+    index: activeIndex,
+    oldLeft: lefts[0],
+    oldTop: tops[0]
+  })
+  if (check.ifRotate) {
+    shapes[activeIndex].renderArr.splice(0, renderArr.length) //清空已经渲染的方块
+    shapes[activeIndex].offsetArr.splice(0, offsetArr.length) //清空已经渲染的方块的偏移量
+    shapes[activeIndex].renderArr = [...newArr]
+    for (let i = 0; i < check.newOffsetArr.length; i++) {
+      shapes[activeIndex].offsetArr.push(check.newOffsetArr[i])
+    }
+    // traversal({
+    //   arr: shapes[getActiveIndex()].renderArr, 
+    //   index: getActiveIndex(),
+    //   oldLeft: lefts[0],
+    //   oldTop: tops[0]
+    // }) //渲染新的
   }
-  
+}
+const disappear = () => {
+  let lockedOffsetArr = getLockedOffsetArr()
+  for (let i = 0; i < GAME_ROWNUM; i++) {
+    let num = 0
+    for (let j = 0; j < lockedOffsetArr.length; j++) {
+      if(lockedOffsetArr[j].i === i) num++
+    }
+    if (num >= GAME_COLUMNNUM) {
+      for (let j = 0; j < lockedOffsetArr.length; j++) {
+        if(lockedOffsetArr[j].i === i) {
+          delete lockedOffsetArr[j]
+          lockedOffsetArr.splice(j, j + 1)
+        }
+        console.log(lockedOffsetArr);
+      }
+    }
+  }
+}
+const stop = () => {
+  clearTimeout(timeout)
+  console.log('stoooooooooooop');
+}
+const start = () => {
+  let leval = localStorage.getItem('leval') || 5
+  let time = 1000 - leval * 100
+  if (time <= 500) time = 500
+  // const event = new UIEvent('keydown', {
+  //   view: window,
+  //   bubbles: true,
+  //   cancelable: true,
+  // })
+  // event.keycode = 40
+  // event.code = 'ArrowDown'
+  timeout = setTimeout(function loop() {
+    if (canMove().canMoveDown) {
+      // document.dispatchEvent(event)
+      document.getElementById('down').click()
+      setTimeout(loop.bind(this), time);
+    } else {
+      clearTimeout(timeout)
+      shapes[getActiveIndex()].active = false
+      disappear()
+      shapes.unshift({renderArr: jsonDeepCopy(shapeArr[22]), offsetArr: [], active: true, initWidth: shapeArr[22][0].length})
+      traversal({
+        arr: shapes[0].renderArr,
+        index: 0,
+        center: true
+      })
+      start()
+    }
+  }.bind(this), time);
 }
 onMounted(() => {
-  traversal(shapes[0].renderArr, 0)
+  traversal({
+    arr: shapes[0].renderArr,
+    index: 0,
+    center: true
+  })
 
 
   document.onkeydown = function(event) {
@@ -281,21 +396,21 @@ onMounted(() => {
         }
         break;
       case 'ArrowUp':
-        // rotate()
-        if (canMove().canMoveTop) {
-          toMove('ArrowUp')
-        }
+        rotate()
+        // if (canMove().canMoveTop) {
+        //   toMove('ArrowUp')
+        // }
         break;
       case 'ArrowRight':
         if (canMove().canMoveRight) {
           toMove('ArrowRight')
         }
         break;
-      case 'ArrowDown':
-        if (canMove().canMoveDown) {
-          toMove('ArrowDown')
-        }
-        break;
+      // case 'ArrowDown':
+      //   if (canMove().canMoveDown) {
+      //     toMove('ArrowDown')
+      //   }
+      //   break;
       case 'Space':
         
         break;
