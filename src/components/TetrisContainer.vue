@@ -1,15 +1,47 @@
 <template>
+  <button id="down" style="display: none;" @click="() => {if(canMove().canMoveDown) toMove('ArrowDown')}">down</button>
   <div class="tetris-container" :style="styleObject">
-    <button @click="start">start</button>
-    <button id="down" style="display: none;" @click="() => {if(canMove().canMoveDown) toMove('ArrowDown')}">down</button>
-    <button @click="stop">stop</button>
     <Shape v-for="item in shapes" 
-      :key="item"
-      :shapeMsg="{
-        renderArr: item.renderArr,
-        offsetArr: item.offsetArr,
-        active: item.active
-      }"/>
+    :key="item"
+    :shapeMsg="{
+      renderArr: item.renderArr,
+      offsetArr: item.offsetArr,
+      active: item.active
+    }"/>
+  </div>
+  <div class="controll" :style="controllStyleObject">
+    <div>
+      <button @click="reset">重置游戏</button>
+    </div>
+    <div>
+      <span>当前分数:{{grade}}</span>
+    </div>
+    <div>
+      <label for="choice">选择游戏等级</label>
+      <select name="选择游戏等级" id="choice" @change="choice" :value="level">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+      </select>
+    </div>
+    <div>
+      <button @click="start">start</button>
+      <button @click="stop">stop</button>
+    </div>
+    <div class="flexColumnCenter">
+      <button @click="rotate()">变形</button>
+      <div>
+        <button @click="() => {if (canMove().canMoveLeft) toMove('ArrowLeft')}">left</button>
+        <button button @click="() => {if (canMove().canMoveRight) toMove('ArrowRight')}">right</button>
+      </div>
+      <button @click="() => {if (canMove().canMoveDown) toMove('ArrowDown')}">down</button>
+    </div>
   </div>
 </template>
 
@@ -22,42 +54,31 @@ const styleObject = {
   width: PICEBOX_SIZE * GAME_COLUMNNUM + 'px',
   height: PICEBOX_SIZE * GAME_ROWNUM + 'px',
 }
+const controllStyleObject = {
+  // width: PICEBOX_SIZE * GAME_COLUMNNUM + 'px',
+  height: PICEBOX_SIZE * GAME_ROWNUM + 'px',
+}
 /**
  * renderArr: 用于渲染
  * offsetArr：偏移量,用于实际渲染,renderArr会转换成offsetArr
  * active：是否可以移动变形
  */
-const jsonDeepCopy = (obj) => JSON.parse(JSON.stringify(obj))
-let timeout = ref()
 const shapes = reactive([])
-shapes.push({renderArr: jsonDeepCopy(shapeArr[22]), offsetArr: [], active: true, initWidth: shapeArr[22][0].length})
-shapes.push({
-  renderArr: [[1, 1, 1], [0, 1, 0]],
-  offsetArr: [{i: 8, j: 0},{i: 9, j: 0},{i: 10, j: 0},{i: 10, j: 1},],
-  active: false,
-  initWidth: 3
-})
-shapes.push({
-  renderArr: [[1, 1, 1], [0, 1, 1]],
-  offsetArr: [{i: 19, j: 7},{i: 18, j: 8},{i: 17, j: 8},{i: 17, j: 8},{i: 19, j: 8}],
-  active: false,
-  initWidth: 3
-})
-shapes.push({
-  renderArr: [[1, 1, 1], [1, 1, 0]],
-  offsetArr: [{i: 3, j: 9},{i: 4, j: 9},{i: 5, j: 9},{i: 6, j: 8},{i: 6, j: 9}],
-  active: false
-})
-shapes.push({
-  renderArr: [[1, 1, 1]],
-  offsetArr: [{i: 0, j: 8},{i: 0, j: 9},{i: 1, j: 9}],
-  active: false
-})
-shapes.push({
-  renderArr: [[1, 1, 1,1,1,1,1,1,1,1,]],
-  offsetArr: [{i: 8, j: 0},{i: 8, j: 1},{i: 8, j: 2},{i: 8, j: 3},{i: 8, j: 4},{i: 8, j: 5},{i: 8, j: 6},{i: 8, j: 7},{i: 8, j: 8},{i: 8, j: 9}],
-  active: false
-})
+let level = ref(1) // 游戏等级
+let grade = ref(0) // 分数
+let clearTotal = ref(0) // 消去的总行数
+let timeout = ref()
+let starting = ref(false)
+let nowRandom = ref()
+const jsonDeepCopy = (obj) => JSON.parse(JSON.stringify(obj))
+const getRandomInteger = (min, max) => Math.floor(Math.random() * (max - min + 1) ) + min
+const getRandomShape = () => {
+  let index = getRandomInteger(0, shapeArr.length - 1)
+  nowRandom.value = shapeArr[index]
+  return shapeArr[index]
+}
+shapes.push({renderArr: jsonDeepCopy(getRandomShape()), offsetArr: [], active: true, initWidth: nowRandom.value[0].length})
+
 const traversal = ({arr, index, center, oldTop, oldLeft}) => {
   /**
    * 遍历二维数组,第一个循环遍历行
@@ -105,7 +126,15 @@ const canMove = () => {
   let canMoveRight = true
   let canMoveDown = true
 
-  const activeOffsets = shapes[getActiveIndex()].offsetArr
+  if (!starting.value) {
+    canMoveLeft = false
+    canMoveTop = false
+    canMoveRight = false
+    canMoveDown = false
+  }
+
+  let index = getActiveIndex()
+  const activeOffsets = shapes[index] && shapes[index].offsetArr
   let lockedOffsetArr = getLockedOffsetArr()
   for (let i = 0; i < activeOffsets.length; i++) {
     const item = activeOffsets[i] //每个可以动的小方块
@@ -170,12 +199,6 @@ const canMove = () => {
       canMoveDown = false
     }
   }
-  // console.log({
-  //   canMoveLeft,
-  //   canMoveTop,
-  //   canMoveRight,
-  //   canMoveDown,
-  // });
   return {
     canMoveLeft,
     canMoveTop,
@@ -283,6 +306,8 @@ const haveLocked = () => {
   return false
 }
 const rotate = () => {
+  // 未开始游戏,不允许变换
+  if (!starting.value) return
   // 变换前先获取原始偏移量(偏移量最小的那个方块的)
   let tops = [] //所有盒子的高度偏移量(垂直方向)
   let lefts = [] //所有盒子的横向偏移量(水平方向)
@@ -328,66 +353,134 @@ const rotate = () => {
     // }) //渲染新的
   }
 }
+const deleteByI = (top) => {
+  // 删除高度为top的那行
+  for (let i = 0; i < shapes.length; i++) {
+    if (!shapes[i].active) {
+      for (let j = 0; j < shapes[i].offsetArr.length; j++) {
+        const item = shapes[i].offsetArr[j]
+        if (item.i === top) {
+          shapes[i].offsetArr.splice(j, 1)
+          j--
+        }
+      }
+    }
+  }
+  // 删除后比top小的高度全加1
+  for (let i = 0; i < shapes.length; i++) {
+    for (let j = 0; j < shapes[i].offsetArr.length; j++) {
+      const item = shapes[i].offsetArr[j]
+      if (item.i <= top) {
+        shapes[i].offsetArr[j].i = shapes[i].offsetArr[j].i + 1
+      }
+    }
+  }
+}
+/**有整行凑齐进行清除 */
 const disappear = () => {
   let lockedOffsetArr = getLockedOffsetArr()
   for (let i = 0; i < GAME_ROWNUM; i++) {
     let num = 0
     for (let j = 0; j < lockedOffsetArr.length; j++) {
-      if(lockedOffsetArr[j].i === i) num++
+      const item = lockedOffsetArr[j];
+      if (item.i === i) num++
     }
     if (num >= GAME_COLUMNNUM) {
-      for (let j = 0; j < lockedOffsetArr.length; j++) {
-        if(lockedOffsetArr[j].i === i) {
-          delete lockedOffsetArr[j]
-          lockedOffsetArr.splice(j, j + 1)
+      deleteByI(i)
+      clearTotal.value++
+      // 累加分数
+      grade.value += level.value * 10
+      // 判断是否上升游戏等级
+      if (clearTotal.value >= 4) {
+        if (level.value < 9) {
+          level.value++
+          clearTotal.value = 0
         }
-        console.log(lockedOffsetArr);
       }
     }
   }
 }
+/**游戏是否结束 */
+const ifGameOver = (e) => {
+  let arr = getLockedOffsetArr()
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i].i === 0) return true
+  }
+  return false
+}
+/**选择游戏等级 */
+const choice = (e) => {
+  level.value = e.target.value
+}
 const stop = () => {
   clearTimeout(timeout)
-  console.log('stoooooooooooop');
+  timeout = undefined
+  starting.value = false
 }
 const start = () => {
-  let leval = localStorage.getItem('leval') || 5
-  let time = 1000 - leval * 100
-  if (time <= 500) time = 500
-  // const event = new UIEvent('keydown', {
-  //   view: window,
-  //   bubbles: true,
-  //   cancelable: true,
-  // })
-  // event.keycode = 40
-  // event.code = 'ArrowDown'
+  // 已经开始游戏,不处理直接返回
+  if (starting.value) return
+  starting.value = true
+  // 获取下落间隔时间
+  let time = 1000 - level.value * 100
+  if (time <= 100) time = 100
+  const BDOM = document.getElementById('down')
+  // 设置自动下落
   timeout = setTimeout(function loop() {
     if (canMove().canMoveDown) {
-      // document.dispatchEvent(event)
-      document.getElementById('down').click()
-      setTimeout(loop.bind(this), time);
+      BDOM.click()
+      timeout = setTimeout(loop.bind(this), time);
     } else {
+      // 下落到不能移动时候,清除下落的定时器
       clearTimeout(timeout)
+      timeout = undefined
+      // 固定方块的状态
       shapes[getActiveIndex()].active = false
+      // 清除凑齐整行的方块
       disappear()
-      shapes.unshift({renderArr: jsonDeepCopy(shapeArr[22]), offsetArr: [], active: true, initWidth: shapeArr[22][0].length})
+      // 判断游戏是否结束
+      if(ifGameOver()) {
+        alert(`游戏结束,您的分数是${grade.value}`)
+        return
+      }
+      // 添加下个出现的方块
+      shapes.unshift({renderArr: jsonDeepCopy(getRandomShape()), offsetArr: [], active: true, initWidth: nowRandom.value[0].length})
+      // 处理下个方块的数据
       traversal({
         arr: shapes[0].renderArr,
         index: 0,
         center: true
       })
+      // 继续开始自动下落
+      starting.value = false
       start()
     }
   }.bind(this), time);
 }
-onMounted(() => {
+const reset = () => {
+  shapes.splice(0, shapes.length)
+  shapes.push({renderArr: jsonDeepCopy(getRandomShape()), offsetArr: [], active: true, initWidth: nowRandom.value[0].length})
+  clearTimeout(timeout)
+  timeout = undefined
+  starting.value = false
+  grade.value = 0
+  level.value = 1
   traversal({
     arr: shapes[0].renderArr,
     index: 0,
     center: true
   })
-
-
+}
+onMounted(() => {
+  // 初始化游戏等级
+  level.value = 1
+  // 初始化第一个方块数据
+  traversal({
+    arr: shapes[0].renderArr,
+    index: 0,
+    center: true
+  })
+  // 监听键盘事件 
   document.onkeydown = function(event) {
     switch (event.code) {
       case 'ArrowLeft':
@@ -406,11 +499,11 @@ onMounted(() => {
           toMove('ArrowRight')
         }
         break;
-      // case 'ArrowDown':
-      //   if (canMove().canMoveDown) {
-      //     toMove('ArrowDown')
-      //   }
-      //   break;
+      case 'ArrowDown':
+        if (canMove().canMoveDown) {
+          toMove('ArrowDown')
+        }
+        break;
       case 'Space':
         
         break;
@@ -426,5 +519,14 @@ onMounted(() => {
 .tetris-container{
   background-color: black;
   position: relative;
+}
+.controll {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.controll button {
+  margin: 8px;
 }
 </style>

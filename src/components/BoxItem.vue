@@ -14,6 +14,7 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  color: Number, //颜色
 })
 const styleObject = reactive({
   width: PICEBOX_SIZE + 'px',
@@ -33,8 +34,8 @@ const styleInnerObject = {
   marginLeft: - PICEBOX_SIZE / 2 / 2 + 'px',
   marginTop: - PICEBOX_SIZE / 2 / 2 + 'px',
 }
-const classList = ['box-item-color7', props.active ? 'active' : 'lock']
-const classInnerList = ['box-item-inner-color7']
+const classList = ['box-item-color' + props.color, props.active ? 'active' : 'lock']
+const classInnerList = ['box-item-inner-color' + props.color]
 
 
 const count = ref(0)
@@ -64,7 +65,7 @@ const count = ref(0)
   background-color: rgb(231, 234, 25);
 }
 .box-item-color7 {
-  background-color: rgb(30, 31, 22);
+  background-color: rgb(3, 102, 89);
 }
 
 .box-item-inner {
@@ -92,6 +93,6 @@ const count = ref(0)
   background-color: rgb(141, 144, 16);
 }
 .box-item-inner-color7 {
-  background-color: rgb(44, 44, 34);
+  background-color: rgb(5, 181, 157);
 }
 </style>
