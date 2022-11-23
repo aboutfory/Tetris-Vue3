@@ -36,9 +36,6 @@ const styleInnerObject = {
 }
 const classList = ['box-item-color' + props.color, props.active ? 'active' : 'lock']
 const classInnerList = ['box-item-inner-color' + props.color]
-
-
-const count = ref(0)
 </script>
 
 <style scoped>

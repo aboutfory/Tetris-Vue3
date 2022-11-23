@@ -9,44 +9,50 @@
       active: item.active
     }"/>
   </div>
-  <div class="controll" :style="controllStyleObject">
-    <div>
-      <button @click="reset">重置游戏</button>
+  <div>
+    <div style="margin-left: 40px">
+      <Next :nextShape="nextShape"/>
     </div>
-    <div>
-      <span>当前分数:{{grade}}</span>
-    </div>
-    <div>
-      <label for="choice">选择游戏等级</label>
-      <select name="选择游戏等级" id="choice" @change="choice" :value="level">
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5">5</option>
-        <option value="6">6</option>
-        <option value="7">7</option>
-        <option value="8">8</option>
-        <option value="9">9</option>
-      </select>
-    </div>
-    <div>
-      <button @click="start">start</button>
-      <button @click="stop">stop</button>
-    </div>
-    <div class="flexColumnCenter">
-      <button @click="rotate()">变形</button>
+    <div class="controll" :style="controllStyleObject">
       <div>
-        <button @click="() => {if (canMove().canMoveLeft) toMove('ArrowLeft')}">left</button>
-        <button button @click="() => {if (canMove().canMoveRight) toMove('ArrowRight')}">right</button>
+        <button @click="reset">重置游戏</button>
       </div>
-      <button @click="() => {if (canMove().canMoveDown) toMove('ArrowDown')}">down</button>
+      <div>
+        <span>当前分数:{{grade}}</span>
+      </div>
+      <div>
+        <label for="choice">选择游戏等级</label>
+        <select name="选择游戏等级" id="choice" @change="choice" :value="level">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+        </select>
+      </div>
+      <div>
+        <button @click="start">start</button>
+        <button @click="stop">stop</button>
+      </div>
+      <div class="flexColumnCenter">
+        <button @click="rotate()">变形</button>
+        <div>
+          <button @click="() => {if (canMove().canMoveLeft) toMove('ArrowLeft')}">left</button>
+          <button button @click="() => {if (canMove().canMoveRight) toMove('ArrowRight')}">right</button>
+        </div>
+        <button @click="() => {if (canMove().canMoveDown) toMove('ArrowDown')}">down</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import Shape from "./Shape.vue";
+import Next from "./Next.vue";
 import { PICEBOX_SIZE, GAME_ROWNUM, GAME_COLUMNNUM } from "./../tool/constant";
 import shapeArr from "./../tool/shape";
 import { onMounted, reactive, ref } from 'vue'
@@ -55,8 +61,7 @@ const styleObject = {
   height: PICEBOX_SIZE * GAME_ROWNUM + 'px',
 }
 const controllStyleObject = {
-  // width: PICEBOX_SIZE * GAME_COLUMNNUM + 'px',
-  height: PICEBOX_SIZE * GAME_ROWNUM + 'px',
+  height: PICEBOX_SIZE * (GAME_ROWNUM - 5) + 'px',
 }
 /**
  * renderArr: 用于渲染
@@ -69,7 +74,9 @@ let grade = ref(0) // 分数
 let clearTotal = ref(0) // 消去的总行数
 let timeout = ref()
 let starting = ref(false)
+let stoping = ref(false)
 let nowRandom = ref()
+let nextShape = reactive({msg: {}})
 const jsonDeepCopy = (obj) => JSON.parse(JSON.stringify(obj))
 const getRandomInteger = (min, max) => Math.floor(Math.random() * (max - min + 1) ) + min
 const getRandomShape = () => {
@@ -416,11 +423,16 @@ const stop = () => {
   clearTimeout(timeout)
   timeout = undefined
   starting.value = false
+  stoping.value = true
 }
-const start = () => {
+const start = (flag) => {
   // 已经开始游戏,不处理直接返回
   if (starting.value) return
   starting.value = true
+  // 随机生成下一个方块数据
+  if (!stoping.value) {
+    nextShape.msg = {renderArr: jsonDeepCopy(getRandomShape()), offsetArr: [], active: true, initWidth: nowRandom.value[0].length}
+  }
   // 获取下落间隔时间
   let time = 1000 - level.value * 100
   if (time <= 100) time = 100
@@ -444,7 +456,8 @@ const start = () => {
         return
       }
       // 添加下个出现的方块
-      shapes.unshift({renderArr: jsonDeepCopy(getRandomShape()), offsetArr: [], active: true, initWidth: nowRandom.value[0].length})
+      // shapes.unshift({renderArr: jsonDeepCopy(getRandomShape()), offsetArr: [], active: true, initWidth: nowRandom.value[0].length})
+      shapes.unshift(nextShape.msg)
       // 处理下个方块的数据
       traversal({
         arr: shapes[0].renderArr,
@@ -453,6 +466,7 @@ const start = () => {
       })
       // 继续开始自动下落
       starting.value = false
+      stoping.value = false
       start()
     }
   }.bind(this), time);
