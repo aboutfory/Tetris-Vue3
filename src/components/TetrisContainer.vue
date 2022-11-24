@@ -45,6 +45,7 @@
           <button button @click="() => {if (canMove().canMoveRight) toMove('ArrowRight')}">right</button>
         </div>
         <button @click="() => {if (canMove().canMoveDown) toMove('ArrowDown')}">down</button>
+        <button button @click="fastDown">fastDown</button>
       </div>
     </div>
   </div>
@@ -406,6 +407,17 @@ const disappear = () => {
       }
     }
   }
+}
+/**方块快速下落 */
+const fastDown = () => {
+  let fastDownTimeout = setTimeout(function loop() {
+    if (canMove().canMoveDown) {
+      toMove('ArrowDown')
+      loop()
+    } else {
+      clearTimeout(fastDownTimeout)
+    }
+  }.bind(this), 50);
 }
 /**游戏是否结束 */
 const ifGameOver = (e) => {

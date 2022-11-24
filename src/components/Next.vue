@@ -4,6 +4,7 @@
     <!-- <div>{{nextShape}}</div> -->
     <Shape :shapeMsg="{
       offsetArr: offsetArr,
+      renderArr: [],
       active: false
     }"/>
   </div>
@@ -12,7 +13,7 @@
 <script setup>
 import Shape from "./Shape.vue";
 import { PICEBOX_SIZE } from "./../tool/constant";
-import { onMounted, onUpdated, reactive, ref, watch } from 'vue'
+import { reactive, watch } from 'vue'
 
 const props = defineProps({
   nextShape: {
@@ -43,7 +44,6 @@ const nextTraversal = (arr) => {
     }
   }
 }
-console.log(nextShape.msg);
 // nextTraversal(nextShape.msg.renderArr)
 watch(() => nextShape.msg, () => {
   offsetArr.splice(0, offsetArr.length)
